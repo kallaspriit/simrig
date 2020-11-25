@@ -11,14 +11,18 @@
 
 // wiring of handbrake sensor for 1000 PSI 5V pressure tranducer
 // 1. sensor ground --- GND
-// 2. GND --[15k]-- SENSOR_PIN --[8.2k]-- sensor output
+// 2. GND --[15k]-- sensor output --[8.2k]-- SENSOR_PIN
 // 3. sensor power --- VIN
 
 // shifter switches wiring
-// 1. GND
-// 2. GND
-// 3. shift up --- SHIFTER_UP_PIN
-// 3. shift down --- SHIFTER_DOWN_PIN
+// 1. GND [GREEN]
+// 2. GND [BLUE]
+// 3. shift down --- SHIFTER_DOWN_PIN [RED]
+// 4. shift up --- SHIFTER_UP_PIN [YELLOW]
+
+// shifter switch wiring
+// LEFT - green, red
+// RIGHT - blue, yellow
 
 // configuration
 const int SENSOR_PIN = A7;                               // pressure sensor or potentiometer
