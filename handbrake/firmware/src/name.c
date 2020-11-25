@@ -12,11 +12,6 @@
     'S', 'L', ' ', 'H', 'a', 'n', 'd', 'b', 'r', 'a', 'k', 'e' \
   }
 #define JOYSTICK_NAME_LEN 12
-// #define JOYSTICK_NAME                                                    \
-//   {                                                                      \
-//     'S', 'u', 'v', 'i', ' ', 'H', 'a', 'n', 'd', 'b', 'r', 'a', 'k', 'e' \
-//   }
-// #define JOYSTICK_NAME_LEN 14
 
 // Do not change this part. This exact format is required by USB.
 
