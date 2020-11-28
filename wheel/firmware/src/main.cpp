@@ -5,6 +5,27 @@
 // https://github.com/adafruit/Adafruit_nRF52_Arduino
 // https://github.com/adafruit/Adafruit_nRF52_Arduino/tree/master/libraries/Bluefruit52Lib
 
+// Required buttons
+// 1. left arrow
+// 2. right arrow
+// 3. up arrow
+// 4. down arrow
+// 5. page left (game based, F3 for Dirt)
+// 6. page right (game based, F4 for Dirt)
+// 7. enter
+// 8. escape
+// 9. toggle game
+// 10. reset view (F11 for dirt)
+// 11. game specific 1
+// 12. game specific 2
+// 13. game specific 3
+// 14. game specific 4
+
+// Dirt game specific buttons
+// 1. Propose fixes
+// 2. Repair tire
+// 3. Window wipers
+
 #include <bluefruit.h>
 
 // battery voltage detection configuration
