@@ -10,9 +10,9 @@
 #include <Arduino.h>
 
 // wiring of handbrake sensor for 1000 PSI 5V pressure tranducer
-// 1. sensor ground --- GND
-// 2. GND --[15k]-- sensor output --[8.2k]-- SENSOR_PIN
-// 3. sensor power --- VIN
+// 1. POWER  [RED]   - sensor power --- VIN
+// 2. SIGNAL [GREEN] - GND --[15k]-- sensor output --[8.2k]-- SENSOR_PIN
+// 1. GND    [BLUE]  - sensor ground --- GND
 
 // shifter switches wiring
 // 1. GND [GREEN]
