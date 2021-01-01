@@ -41,6 +41,17 @@ BLEBas batteryService;
 // pin configuration
 // const int BUTTON_PIN = 7;
 const int BUTTON_PIN = A0;
+
+// button pins mapping
+const int BUTTON_ENTER_PIN = A0;            // yellow
+const int BUTTON_ESCAPE_PIN = A1;           // yellow
+const int BUTTON_TOP_RIGHT_OUTER_PIN = A2;  // red
+const int BUTTON_TOP_RIGHT_MIDDLE_PIN = A3; // green
+const int BUTTON_TOP_RIGHT_INNER_PIN = A4;  // yellow
+const int BUTTON_TOP_LEFT_OUTER_PIN = A5;   // red
+const int BUTTON_TOP_LEFT_MIDDLE_PIN = 26;  // green
+const int BUTTON_TOP_LEFT_INNER_PIN = 27;   // yellow
+
 const int CONNECTION_LED_PIN = LED_CONN;
 
 // timing configuration
