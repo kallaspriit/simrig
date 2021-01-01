@@ -39,12 +39,14 @@ BLEHidAdafruit hidService;
 BLEBas batteryService;
 
 // pin configuration
-const int BUTTON_PIN = 7;
+// const int BUTTON_PIN = 7;
+const int BUTTON_PIN = A0;
 const int CONNECTION_LED_PIN = LED_CONN;
 
 // timing configuration
 const unsigned int REPORT_BATTERY_VOLTAGE_INTERVAL_MS = 60000;
-const unsigned int INTERACTION_DEEP_SLEEP_DELAY_MS = 30000;
+// const unsigned int INTERACTION_DEEP_SLEEP_DELAY_MS = 30000; // 30s
+const unsigned int INTERACTION_DEEP_SLEEP_DELAY_MS = 300000; // 5m
 const unsigned int CONNECTION_BLINK_TOGGLE_INTERVAL_MS = 5000;
 const unsigned int CONNECTION_BLINK_ON_DURATION_MS = 10;
 
@@ -245,8 +247,14 @@ void loop()
   {
     // hidService.keyPress(HID_KEY_ARROW_RIGHT);
 
-    uint8_t keycodes[6] = {HID_KEY_ARROW_RIGHT, HID_KEY_NONE, HID_KEY_NONE,
+    // right arrow
+    // uint8_t keycodes[6] = {HID_KEY_ARROW_RIGHT, HID_KEY_NONE, HID_KEY_NONE,
+    //                        HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
+
+    // enter/return
+    uint8_t keycodes[6] = {HID_KEY_RETURN, HID_KEY_NONE, HID_KEY_NONE,
                            HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
+
     hidService.keyboardReport(0, keycodes);
 
     // lastSendTime = currentTime;
