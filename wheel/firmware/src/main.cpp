@@ -268,38 +268,51 @@ void loop()
     lastReportBatteryVoltageTime = currentTime;
   }
 
-  // bool isButtonPressed = digitalRead(BUTTON_PIN) == LOW;
-  bool isButtonPressed = Buttons.down(0);
-
-  if (isButtonPressed && !wasButtonPressed)
+  if (Buttons.down(0))
   {
-    // hidService.keyPress(HID_KEY_ARROW_RIGHT);
-
-    // right arrow
-    // uint8_t keycodes[6] = {HID_KEY_ARROW_RIGHT, HID_KEY_NONE, HID_KEY_NONE,
-    //                        HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
-
-    // enter/return
-    uint8_t keycodes[6] = {HID_KEY_RETURN, HID_KEY_NONE, HID_KEY_NONE,
-                           HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
+    uint8_t keycodes[6] = {HID_KEY_RETURN, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
 
     hidService.keyboardReport(0, keycodes);
 
-    // lastSendTime = currentTime;
-    Serial.println("button down");
-
-    wasButtonPressed = true;
     lastInteractionTime = currentTime;
   }
-  else if (!isButtonPressed && wasButtonPressed)
+  else
   {
     hidService.keyRelease();
-
-    Serial.println("button up");
-
-    wasButtonPressed = false;
-    lastInteractionTime = currentTime;
   }
+
+  // bool isButtonPressed = digitalRead(BUTTON_PIN) == LOW;
+  // bool isButtonPressed = Buttons.down(0);
+
+  // if (isButtonPressed && !wasButtonPressed)
+  // {
+  //   // hidService.keyPress(HID_KEY_ARROW_RIGHT);
+
+  //   // right arrow
+  //   // uint8_t keycodes[6] = {HID_KEY_ARROW_RIGHT, HID_KEY_NONE, HID_KEY_NONE,
+  //   //                        HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
+
+  //   // enter/return
+  //   uint8_t keycodes[6] = {HID_KEY_RETURN, HID_KEY_NONE, HID_KEY_NONE,
+  //                          HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
+
+  //   hidService.keyboardReport(0, keycodes);
+
+  //   // lastSendTime = currentTime;
+  //   Serial.println("button down");
+
+  //   wasButtonPressed = true;
+  //   lastInteractionTime = currentTime;
+  // }
+  // else if (!isButtonPressed && wasButtonPressed)
+  // {
+  //   hidService.keyRelease();
+
+  //   Serial.println("button up");
+
+  //   wasButtonPressed = false;
+  //   lastInteractionTime = currentTime;
+  // }
 
   // go to deep sleep if there are no interactions for a while
   if (currentTime - lastInteractionTime >= INTERACTION_DEEP_SLEEP_DELAY_MS)
