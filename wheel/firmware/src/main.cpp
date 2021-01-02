@@ -28,6 +28,8 @@
 
 #include <bluefruit.h>
 
+#include <Buttons.hpp>
+
 // battery voltage detection configuration
 const float VBAT_MV_PER_LSB = 0.73242188f; // 3000mV/4096 12-bit ADC
 const float VBAT_DIVIDER = 0.5f;           // 150K + 150K voltage divider on VBAT
@@ -39,18 +41,29 @@ BLEHidAdafruit hidService;
 BLEBas batteryService;
 
 // pin configuration
-// const int BUTTON_PIN = 7;
-const int BUTTON_PIN = A0;
 
 // button pins mapping
-const int BUTTON_ENTER_PIN = A0;            // yellow
+const int BUTTON_ENTER_PIN = 13;            // yellow
 const int BUTTON_ESCAPE_PIN = A1;           // yellow
 const int BUTTON_TOP_RIGHT_OUTER_PIN = A2;  // red
 const int BUTTON_TOP_RIGHT_MIDDLE_PIN = A3; // green
 const int BUTTON_TOP_RIGHT_INNER_PIN = A4;  // yellow
 const int BUTTON_TOP_LEFT_OUTER_PIN = A5;   // red
-const int BUTTON_TOP_LEFT_MIDDLE_PIN = 26;  // green
-const int BUTTON_TOP_LEFT_INNER_PIN = 27;   // yellow
+const int BUTTON_TOP_LEFT_MIDDLE_PIN = SCK; // green
+const int BUTTON_TOP_LEFT_INNER_PIN = MOSI; // yellow
+const int BUTTON_ARROW_RIGHT_PIN = MISO;    // yellow
+const int BUTTON_ARROW_LEFT_PIN = 6;        // blue
+const int BUTTON_ARROW_UP_PIN = 9;          // white
+const int BUTTON_ARROW_DOWN_PIN = 10;       // green
+const int BUTTON_PAGE_NEXT_PIN = 11;        // black
+const int BUTTON_PAGE_PREVIOUS_PIN = 11;    // red
+
+const byte BUTTON_PINS[] = {BUTTON_ENTER_PIN, BUTTON_ESCAPE_PIN};
+
+// TODO: temporary
+// const int BUTTON_PIN = 7;
+// const int BUTTON_PIN = BUTTON_ESCAPE_PIN;
+const int BUTTON_PIN = BUTTON_ENTER_PIN;
 
 const int CONNECTION_LED_PIN = LED_CONN;
 
@@ -224,6 +237,9 @@ void setup()
   // start advertising
   startAdvertising();
 
+  // setup buttons
+  Buttons.begin(BUTTON_PINS, 2);
+
   // initialize last interaction time (board goes to sleep after a while)
   lastInteractionTime = millis();
 }
@@ -252,7 +268,8 @@ void loop()
     lastReportBatteryVoltageTime = currentTime;
   }
 
-  bool isButtonPressed = digitalRead(BUTTON_PIN) == LOW;
+  // bool isButtonPressed = digitalRead(BUTTON_PIN) == LOW;
+  bool isButtonPressed = Buttons.down(0);
 
   if (isButtonPressed && !wasButtonPressed)
   {
@@ -331,4 +348,6 @@ void loop()
 
     digitalWrite(CONNECTION_LED_PIN, connectionBlinkState);
   }
+
+  Buttons.clearChangeFlag();
 }
