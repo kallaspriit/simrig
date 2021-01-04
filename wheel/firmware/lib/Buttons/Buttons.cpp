@@ -131,11 +131,12 @@ void ButtonsClass::button_ISR()
         const boolean readState = !digitalRead(_buttonPins[i]);
         if (readState != _buttonStatus[i].currentState)
         {
-            if (millis() > _buttonStatus[i].lastChangeTime + DEBOUNCE_DELAY)
-            {
-                _buttonStatus[i].currentState = readState;
-                _buttonStatus[i].changeFlag = true;
-            }
+            // TODO: this is buggy, can cause missed key events
+            // if (millis() > _buttonStatus[i].lastChangeTime + DEBOUNCE_DELAY)
+            // {
+            _buttonStatus[i].currentState = readState;
+            _buttonStatus[i].changeFlag = true;
+            // }
             _buttonStatus[i].lastChangeTime = millis();
         }
     }

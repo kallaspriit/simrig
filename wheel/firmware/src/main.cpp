@@ -4,6 +4,7 @@
 // https://learn.adafruit.com/introducing-the-adafruit-nrf52840-feather/blehidadafruit
 // https://github.com/adafruit/Adafruit_nRF52_Arduino
 // https://github.com/adafruit/Adafruit_nRF52_Arduino/tree/master/libraries/Bluefruit52Lib
+// https://w3c.github.io/uievents/tools/key-event-viewer.html
 
 // Required buttons
 // 1. left arrow
@@ -30,6 +31,8 @@
 
 #include <Buttons.hpp>
 
+// #include <map>
+
 // battery voltage detection configuration
 const float VBAT_MV_PER_LSB = 0.73242188f; // 3000mV/4096 12-bit ADC
 const float VBAT_DIVIDER = 0.5f;           // 150K + 150K voltage divider on VBAT
@@ -42,9 +45,9 @@ BLEBas batteryService;
 
 // pin configuration
 
-// button pins mapping
+// button pins mapping (A1 and A2 dont seem to work, auto wake up)
 const int BUTTON_ENTER_PIN = 13;            // yellow
-const int BUTTON_ESCAPE_PIN = A1;           // yellow
+const int BUTTON_ESCAPE_PIN = 5;            // yellow
 const int BUTTON_TOP_RIGHT_OUTER_PIN = A2;  // red
 const int BUTTON_TOP_RIGHT_MIDDLE_PIN = A3; // green
 const int BUTTON_TOP_RIGHT_INNER_PIN = A4;  // yellow
@@ -56,31 +59,72 @@ const int BUTTON_ARROW_LEFT_PIN = 6;        // blue
 const int BUTTON_ARROW_UP_PIN = 9;          // white
 const int BUTTON_ARROW_DOWN_PIN = 10;       // green
 const int BUTTON_PAGE_NEXT_PIN = 11;        // black
-const int BUTTON_PAGE_PREVIOUS_PIN = 11;    // red
+const int BUTTON_PAGE_PREVIOUS_PIN = 12;    // red
 
-const byte BUTTON_PINS[] = {BUTTON_ENTER_PIN, BUTTON_ESCAPE_PIN};
+// const byte BUTTON_PINS[] = {BUTTON_ENTER_PIN, BUTTON_ESCAPE_PIN};
+const int BUTTON_COUNT = 12;
+
+const byte BUTTON_PINS[BUTTON_COUNT] = {
+    BUTTON_ENTER_PIN,
+    BUTTON_ESCAPE_PIN,
+    BUTTON_ARROW_RIGHT_PIN,
+    BUTTON_ARROW_LEFT_PIN,
+    BUTTON_ARROW_UP_PIN,
+    BUTTON_ARROW_DOWN_PIN,
+    BUTTON_PAGE_NEXT_PIN,
+    BUTTON_PAGE_PREVIOUS_PIN,
+    BUTTON_TOP_LEFT_OUTER_PIN,
+    BUTTON_TOP_RIGHT_OUTER_PIN,
+    BUTTON_TOP_LEFT_MIDDLE_PIN,
+    BUTTON_TOP_RIGHT_MIDDLE_PIN,
+};
+
+// mapping of button index to action
+uint8_t buttonMapping[BUTTON_COUNT] = {
+    HID_KEY_RETURN,
+    HID_KEY_ESCAPE,
+    HID_KEY_ARROW_RIGHT,
+    HID_KEY_ARROW_LEFT,
+    HID_KEY_ARROW_UP,
+    HID_KEY_ARROW_DOWN,
+    HID_KEY_F4,
+    HID_KEY_F2,
+    HID_KEY_W,
+    HID_KEY_F3,
+    HID_KEY_C,
+    HID_KEY_H,
+};
+
+// buttonMapping[]
 
 // TODO: temporary
 // const int BUTTON_PIN = 7;
 // const int BUTTON_PIN = BUTTON_ESCAPE_PIN;
-const int BUTTON_PIN = BUTTON_ENTER_PIN;
+// const int BUTTON_PIN = BUTTON_ENTER_PIN;
 
 const int CONNECTION_LED_PIN = LED_CONN;
 
 // timing configuration
-const unsigned int REPORT_BATTERY_VOLTAGE_INTERVAL_MS = 60000;
+// const unsigned int REPORT_BATTERY_VOLTAGE_INTERVAL_MS = 60000;
+const unsigned int REPORT_BATTERY_VOLTAGE_INTERVAL_MS = 10000;
 // const unsigned int INTERACTION_DEEP_SLEEP_DELAY_MS = 30000; // 30s
 const unsigned int INTERACTION_DEEP_SLEEP_DELAY_MS = 300000; // 5m
 const unsigned int CONNECTION_BLINK_TOGGLE_INTERVAL_MS = 5000;
 const unsigned int CONNECTION_BLINK_ON_DURATION_MS = 10;
 
 // runtime info
-bool wasButtonPressed = false;
 unsigned int lastSendTime = 0;
 unsigned int lastReportBatteryVoltageTime = 0;
 unsigned int lastInteractionTime = 0;
 unsigned int lastConnectionBlinkToggleTime = 0;
+int lastPressedButtonCount = 0;
 int connectionBlinkState = LOW;
+// uint8_t lastKeyCodes[] = {HID_KEY_NONE,
+//                           HID_KEY_NONE,
+//                           HID_KEY_NONE,
+//                           HID_KEY_NONE,
+//                           HID_KEY_NONE,
+//                           HID_KEY_NONE};
 
 void startAdvertising(void)
 {
@@ -208,7 +252,7 @@ void setup()
   Serial.println("-- Sim Keyboard --");
 
   // use button as input that also wakes up the device from deep sleep
-  pinMode(BUTTON_PIN, INPUT_PULLUP_SENSE);
+  // pinMode(BUTTON_PIN, INPUT_PULLUP_SENSE);
   pinMode(CONNECTION_LED_PIN, OUTPUT);
 
   // configure bluetooth
@@ -238,7 +282,7 @@ void setup()
   startAdvertising();
 
   // setup buttons
-  Buttons.begin(BUTTON_PINS, 2);
+  Buttons.begin(BUTTON_PINS, BUTTON_COUNT);
 
   // initialize last interaction time (board goes to sleep after a while)
   lastInteractionTime = millis();
@@ -268,17 +312,94 @@ void loop()
     lastReportBatteryVoltageTime = currentTime;
   }
 
-  if (Buttons.down(0))
+  uint8_t keyCodes[] = {HID_KEY_NONE,
+                        HID_KEY_NONE,
+                        HID_KEY_NONE,
+                        HID_KEY_NONE,
+                        HID_KEY_NONE,
+                        HID_KEY_NONE};
+  int pressedButtonCount = 0;
+  // bool keyboardNeedsUpdate = false;
+
+  for (int i = 0; i < BUTTON_COUNT; i++)
   {
-    uint8_t keycodes[6] = {HID_KEY_RETURN, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
+    bool isButtonDown = Buttons.down(i);
 
-    hidService.keyboardReport(0, keycodes);
+    // Buttons.clearChangeFlag(i);
 
+    // skip if button is not down
+    if (!isButtonDown)
+    {
+      continue;
+    }
+
+    // get pressed button key code
+    uint8_t keyCode = buttonMapping[i];
+    int keyCodeIndex = pressedButtonCount++;
+
+    // Serial.print("Button #");
+    // Serial.print(i);
+    // Serial.print(" is down, adding key code ");
+    // Serial.print(keyCode);
+    // Serial.print(" (");
+    // Serial.print(pressedButtonCount);
+    // Serial.println(")");
+
+    // append to list of pressed buttons
+    keyCodes[keyCodeIndex] = keyCode;
+
+    // store last interaction time and note that some buttons are pressed
     lastInteractionTime = currentTime;
+
+    // detect change of key codes that trigger update
+    // if (lastKeyCodes[keyCodeIndex] != keyCodes[keyCodeIndex])
+    // {
+
+    //   keyboardNeedsUpdate = true;
+    // }
+
+    // lastKeyCodes[keyCodeIndex] = keyCodes[keyCodeIndex];
+
+    // break loop if maximum number of buttons are already pressed
+    if (pressedButtonCount == 6)
+    {
+      break;
+    }
   }
-  else
+
+  Buttons.clearChangeFlag();
+
+  // if (Buttons.down(0))
+  // {
+  //   uint8_t keycodes[6] = {HID_KEY_RETURN, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
+
+  //   hidService.keyboardReport(0, keycodes);
+
+  //   lastInteractionTime = currentTime;
+
+  //   Serial.println("Button 0 pressed");
+  // }
+
+  // report pressed buttons or release if number of pressed buttons changes
+  if (pressedButtonCount != lastPressedButtonCount)
   {
-    hidService.keyRelease();
+    if (pressedButtonCount > 0)
+    {
+      Serial.print("Reporting ");
+      Serial.print(pressedButtonCount);
+      Serial.println(" buttons");
+
+      hidService.keyboardReport(0, keyCodes);
+    }
+    else
+    {
+      Serial.println("Releasing buttons");
+
+      hidService.keyRelease();
+    }
+
+    // keyboardNeedsUpdate = false;
+    lastPressedButtonCount = pressedButtonCount;
   }
 
   // bool isButtonPressed = digitalRead(BUTTON_PIN) == LOW;
@@ -295,7 +416,6 @@ void loop()
   //   // enter/return
   //   uint8_t keycodes[6] = {HID_KEY_RETURN, HID_KEY_NONE, HID_KEY_NONE,
   //                          HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
-
   //   hidService.keyboardReport(0, keycodes);
 
   //   // lastSendTime = currentTime;
@@ -317,7 +437,7 @@ void loop()
   // go to deep sleep if there are no interactions for a while
   if (currentTime - lastInteractionTime >= INTERACTION_DEEP_SLEEP_DELAY_MS)
   {
-    Serial.print("no interactions detected for");
+    Serial.print("no interactions detected for ");
     Serial.print(INTERACTION_DEEP_SLEEP_DELAY_MS);
     Serial.println("ms, going to deep sleep until any of the buttons is clicked");
     Serial.flush();
@@ -361,6 +481,4 @@ void loop()
 
     digitalWrite(CONNECTION_LED_PIN, connectionBlinkState);
   }
-
-  Buttons.clearChangeFlag();
 }
