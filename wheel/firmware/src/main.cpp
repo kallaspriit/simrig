@@ -29,7 +29,7 @@
 
 #include <bluefruit.h>
 
-#include <Buttons.hpp>
+// #include <Buttons.hpp>
 
 // #include <map>
 
@@ -62,7 +62,7 @@ const int BUTTON_PAGE_NEXT_PIN = 11;        // black
 const int BUTTON_PAGE_PREVIOUS_PIN = 12;    // red
 
 // const byte BUTTON_PINS[] = {BUTTON_ENTER_PIN, BUTTON_ESCAPE_PIN};
-const int BUTTON_COUNT = 12;
+const int BUTTON_COUNT = 13;
 
 const byte BUTTON_PINS[BUTTON_COUNT] = {
     BUTTON_ENTER_PIN,
@@ -77,6 +77,7 @@ const byte BUTTON_PINS[BUTTON_COUNT] = {
     BUTTON_TOP_RIGHT_OUTER_PIN,
     BUTTON_TOP_LEFT_MIDDLE_PIN,
     BUTTON_TOP_RIGHT_MIDDLE_PIN,
+    BUTTON_TOP_LEFT_INNER_PIN,
 };
 
 // mapping of button index to action
@@ -88,11 +89,12 @@ uint8_t buttonMapping[BUTTON_COUNT] = {
     HID_KEY_ARROW_UP,
     HID_KEY_ARROW_DOWN,
     HID_KEY_F4,
-    HID_KEY_F2,
-    HID_KEY_W,
     HID_KEY_F3,
+    HID_KEY_W,
+    HID_KEY_F2,
     HID_KEY_C,
     HID_KEY_H,
+    HID_KEY_F11,
 };
 
 // buttonMapping[]
@@ -111,9 +113,11 @@ const unsigned int REPORT_BATTERY_VOLTAGE_INTERVAL_MS = 10000;
 const unsigned int INTERACTION_DEEP_SLEEP_DELAY_MS = 300000; // 5m
 const unsigned int CONNECTION_BLINK_TOGGLE_INTERVAL_MS = 5000;
 const unsigned int CONNECTION_BLINK_ON_DURATION_MS = 10;
+const unsigned int REPORT_BUTTONS_CHANGED_INTERVAL_MS = 100;
 
 // runtime info
 unsigned int lastSendTime = 0;
+unsigned int lastButtonsChangedTime = 0;
 unsigned int lastReportBatteryVoltageTime = 0;
 unsigned int lastInteractionTime = 0;
 unsigned int lastConnectionBlinkToggleTime = 0;
@@ -282,7 +286,13 @@ void setup()
   startAdvertising();
 
   // setup buttons
-  Buttons.begin(BUTTON_PINS, BUTTON_COUNT);
+  // Buttons.begin(BUTTON_PINS, BUTTON_COUNT);
+
+  // setup button pins as inputs with pullup and wake-up sensing
+  for (int i = 0; i < BUTTON_COUNT; i++)
+  {
+    pinMode(BUTTON_PINS[i], INPUT_PULLUP_SENSE);
+  }
 
   // initialize last interaction time (board goes to sleep after a while)
   lastInteractionTime = millis();
@@ -312,94 +322,101 @@ void loop()
     lastReportBatteryVoltageTime = currentTime;
   }
 
-  uint8_t keyCodes[] = {HID_KEY_NONE,
-                        HID_KEY_NONE,
-                        HID_KEY_NONE,
-                        HID_KEY_NONE,
-                        HID_KEY_NONE,
-                        HID_KEY_NONE};
-  int pressedButtonCount = 0;
-  // bool keyboardNeedsUpdate = false;
-
-  for (int i = 0; i < BUTTON_COUNT; i++)
+  // consider button changes at certain interval
+  if (currentTime - lastButtonsChangedTime >= REPORT_BUTTONS_CHANGED_INTERVAL_MS)
   {
-    bool isButtonDown = Buttons.down(i);
+    uint8_t keyCodes[] = {HID_KEY_NONE,
+                          HID_KEY_NONE,
+                          HID_KEY_NONE,
+                          HID_KEY_NONE,
+                          HID_KEY_NONE,
+                          HID_KEY_NONE};
+    int pressedButtonCount = 0;
+    // bool keyboardNeedsUpdate = false;
 
-    // Buttons.clearChangeFlag(i);
-
-    // skip if button is not down
-    if (!isButtonDown)
+    for (int i = 0; i < BUTTON_COUNT; i++)
     {
-      continue;
+      // bool isButtonDown = Buttons.down(i);
+      bool isButtonDown = digitalRead(BUTTON_PINS[i]) == LOW;
+
+      // Buttons.clearChangeFlag(i);
+
+      // skip if button is not down
+      if (!isButtonDown)
+      {
+        continue;
+      }
+
+      // get pressed button key code
+      uint8_t keyCode = buttonMapping[i];
+      int keyCodeIndex = pressedButtonCount++;
+
+      // Serial.print("Button #");
+      // Serial.print(i);
+      // Serial.print(" is down, adding key code ");
+      // Serial.print(keyCode);
+      // Serial.print(" (");
+      // Serial.print(pressedButtonCount);
+      // Serial.println(")");
+
+      // append to list of pressed buttons
+      keyCodes[keyCodeIndex] = keyCode;
+
+      // store last interaction time and note that some buttons are pressed
+      lastInteractionTime = currentTime;
+
+      // detect change of key codes that trigger update
+      // if (lastKeyCodes[keyCodeIndex] != keyCodes[keyCodeIndex])
+      // {
+
+      //   keyboardNeedsUpdate = true;
+      // }
+
+      // lastKeyCodes[keyCodeIndex] = keyCodes[keyCodeIndex];
+
+      // break loop if maximum number of buttons are already pressed
+      if (pressedButtonCount == 6)
+      {
+        break;
+      }
     }
 
-    // get pressed button key code
-    uint8_t keyCode = buttonMapping[i];
-    int keyCodeIndex = pressedButtonCount++;
+    // Buttons.clearChangeFlag();
 
-    // Serial.print("Button #");
-    // Serial.print(i);
-    // Serial.print(" is down, adding key code ");
-    // Serial.print(keyCode);
-    // Serial.print(" (");
-    // Serial.print(pressedButtonCount);
-    // Serial.println(")");
-
-    // append to list of pressed buttons
-    keyCodes[keyCodeIndex] = keyCode;
-
-    // store last interaction time and note that some buttons are pressed
-    lastInteractionTime = currentTime;
-
-    // detect change of key codes that trigger update
-    // if (lastKeyCodes[keyCodeIndex] != keyCodes[keyCodeIndex])
+    // if (Buttons.down(0))
     // {
+    //   uint8_t keycodes[6] = {HID_KEY_RETURN, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
 
-    //   keyboardNeedsUpdate = true;
+    //   hidService.keyboardReport(0, keycodes);
+
+    //   lastInteractionTime = currentTime;
+
+    //   Serial.println("Button 0 pressed");
     // }
 
-    // lastKeyCodes[keyCodeIndex] = keyCodes[keyCodeIndex];
-
-    // break loop if maximum number of buttons are already pressed
-    if (pressedButtonCount == 6)
+    // report pressed buttons or release if number of pressed buttons changes
+    if (pressedButtonCount != lastPressedButtonCount)
     {
-      break;
-    }
-  }
+      if (pressedButtonCount > 0)
+      {
+        Serial.print("Reporting ");
+        Serial.print(pressedButtonCount);
+        Serial.println(" buttons");
 
-  Buttons.clearChangeFlag();
+        hidService.keyboardReport(0, keyCodes);
+      }
+      else
+      {
+        Serial.println("Releasing buttons");
 
-  // if (Buttons.down(0))
-  // {
-  //   uint8_t keycodes[6] = {HID_KEY_RETURN, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE, HID_KEY_NONE};
+        hidService.keyRelease();
+      }
 
-  //   hidService.keyboardReport(0, keycodes);
-
-  //   lastInteractionTime = currentTime;
-
-  //   Serial.println("Button 0 pressed");
-  // }
-
-  // report pressed buttons or release if number of pressed buttons changes
-  if (pressedButtonCount != lastPressedButtonCount)
-  {
-    if (pressedButtonCount > 0)
-    {
-      Serial.print("Reporting ");
-      Serial.print(pressedButtonCount);
-      Serial.println(" buttons");
-
-      hidService.keyboardReport(0, keyCodes);
-    }
-    else
-    {
-      Serial.println("Releasing buttons");
-
-      hidService.keyRelease();
+      // keyboardNeedsUpdate = false;
+      lastPressedButtonCount = pressedButtonCount;
     }
 
-    // keyboardNeedsUpdate = false;
-    lastPressedButtonCount = pressedButtonCount;
+    lastButtonsChangedTime = currentTime;
   }
 
   // bool isButtonPressed = digitalRead(BUTTON_PIN) == LOW;
