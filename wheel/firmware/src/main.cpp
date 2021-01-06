@@ -1,9 +1,25 @@
+/**
+ * Custom SIM racing buttons wheel firmware.
+ * 
+ * It's basically a custom bluetooth low-energy wireless keyboard with the buttons mapped
+ * to specific keycodes based on chosen game.
+ * 
+ * One button changes the game mapping to use.
+ * 
+ * Uses Adafruit nRF52840 Feather Express board with built-in Bluetooth LE and Lipo charger.
+ * 
+ * The onboard LED is used to show connection state:
+ * - constantly on: the board is waiting for binding
+ * - blinking slowly: successfully paired and awake
+ * - off: the board is in deep sleep
+ * 
+ * @author Priit Kallas <kallaspriit@gmail.com> 01.2021
+ */
+
+// possibly helpful links
 // https://www.adafruit.com/product/4062
 // https://learn.adafruit.com/introducing-the-adafruit-nrf52840-feather?view=all
-// https://cdn-learn.adafruit.com/downloads/pdf/introducing-the-adafruit-nrf52840-feather.pdf?timestamp=1602412010
-// https://learn.adafruit.com/introducing-the-adafruit-nrf52840-feather/blehidadafruit
 // https://github.com/adafruit/Adafruit_nRF52_Arduino
-// https://github.com/adafruit/Adafruit_nRF52_Arduino/tree/master/libraries/Bluefruit52Lib
 // https://w3c.github.io/uievents/tools/key-event-viewer.html
 
 #include <bluefruit.h>
@@ -33,6 +49,7 @@ const int BUTTON_PAGE_PREVIOUS_PIN = 12;    // red
 const int CHOOSE_GAME_PIN = BUTTON_TOP_RIGHT_INNER_PIN;
 
 // pin to use to show bluetooth connection status
+// connection led is constantly on when pairing and blinks at interval if connected (to preserve battery)
 const int CONNECTION_LED_PIN = LED_CONN;
 
 // number of games we have mappings for
@@ -114,7 +131,7 @@ uint8_t buttonMapping[GAME_COUNT][BUTTON_COUNT] = {
 // timing configuration
 const unsigned int REPORT_BATTERY_VOLTAGE_INTERVAL_MS = 60000; // report battery every minute
 const unsigned int INTERACTION_DEEP_SLEEP_DELAY_MS = 300000;   // go to sleep after 5 minutes of inactivity
-const unsigned int CONNECTION_BLINK_TOGGLE_INTERVAL_MS = 5000; // how often to blink if not connected
+const unsigned int CONNECTION_BLINK_TOGGLE_INTERVAL_MS = 5000; // how often to blink if connected
 const unsigned int CONNECTION_BLINK_ON_DURATION_MS = 10;       // how long to show led when blinking
 const unsigned int REPORT_BUTTONS_CHANGED_INTERVAL_MS = 100;   // minimum interval at which to check/report button presses
 
@@ -398,7 +415,7 @@ void loop()
   // decide connection led state
   int targetConnectionLedState = LOW;
 
-  if (Bluefruit.connected())
+  if (!Bluefruit.connected())
   {
     targetConnectionLedState = HIGH;
   }
