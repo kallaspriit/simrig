@@ -129,19 +129,24 @@ uint8_t buttonMapping[GAME_COUNT][BUTTON_COUNT] = {
 };
 
 // timing configuration
-const unsigned int REPORT_BATTERY_VOLTAGE_INTERVAL_MS = 60000; // report battery every minute
-const unsigned int INTERACTION_DEEP_SLEEP_DELAY_MS = 300000;   // go to sleep after 5 minutes of inactivity
-const unsigned int CONNECTION_BLINK_TOGGLE_INTERVAL_MS = 5000; // how often to blink if connected
-const unsigned int CONNECTION_BLINK_ON_DURATION_MS = 10;       // how long to show led when blinking
-const unsigned int REPORT_BUTTONS_CHANGED_INTERVAL_MS = 100;   // minimum interval at which to check/report button presses
+const unsigned long REPORT_BATTERY_VOLTAGE_INTERVAL_MS = 60000; // report battery every minute
+const unsigned long INTERACTION_DEEP_SLEEP_DELAY_MS = 30000;    // go to sleep after 30 seconds of inactivity
+const unsigned long CONNECTED_BLINK_INTERVAL_MS = 10000;        // how often to blink if connected
+const unsigned long CONNECTING_BLINK_INTERVAL_MS = 1000;        // how often to blink if not connected
+const unsigned long CONNECTION_GIVE_UP_DURATION_MS = 30000;     // how long to attempt to connect to a host before giving up and goind to sleep
+const unsigned long CONNECTION_BLINK_ON_DURATION_MS = 10;       // how long to show led when blinking
+const unsigned long REPORT_BUTTONS_CHANGED_INTERVAL_MS = 100;   // minimum interval at which to check/report button presses
 
 // runtime info
-unsigned int lastButtonsChangedTime = 0;
-unsigned int lastReportBatteryVoltageTime = 0;
-unsigned int lastConnectionBlinkToggleTime = 0;
+unsigned long lastButtonPressTime = 0;
+unsigned long lastReportBatteryTime = 0;
+unsigned long lastConnectionBlinkToggleTime = 0;
+unsigned long lastConnectedTime = 0;
 int lastPressedButtonCount = 0;
 int connectionBlinkState = LOW;
 int activeGameIndex = 0;
+bool wasConnected = false;
+bool haveReportedBattery = false;
 
 // services
 BLEDis deviceInformationService;
@@ -235,7 +240,9 @@ int getBatteryRemainingPercentage(float millivolts)
 // puts the board to deep sleep to preserve battery
 void goToDeepSleep()
 {
-  // turn of all power hungry devices
+  // notify about going to sleep with led on for a second, then turn it off
+  digitalWrite(CONNECTION_LED_PIN, HIGH);
+  delay(1000);
   digitalWrite(CONNECTION_LED_PIN, LOW);
 
   // put nrf52 to deep sleep, gets waken up when one of the sense inputs is pressed
@@ -284,7 +291,7 @@ void setup()
   startAdvertising();
 
   // initialize last buttons changed time (board goes to sleep after a while)
-  lastButtonsChangedTime = millis();
+  lastButtonPressTime = millis();
 }
 
 // main loop, called continuosly as fast as possible
@@ -292,8 +299,63 @@ void loop()
 {
   unsigned int currentTime = millis();
 
-  // report battery voltage at certain interval
-  if (currentTime - lastReportBatteryVoltageTime >= REPORT_BATTERY_VOLTAGE_INTERVAL_MS)
+  // detect connected state
+  bool isConnected = Bluefruit.connected() > 0;
+  bool connectionEstablished = isConnected && !wasConnected;
+  bool connectionLost = !isConnected && wasConnected;
+
+  // update was connected state
+  wasConnected = isConnected;
+
+  // update last connected time
+  if (isConnected)
+  {
+    lastConnectedTime = currentTime;
+  }
+
+  // log connection established / lost
+  if (connectionEstablished)
+  {
+    Serial.println("Connection established");
+  }
+  else if (connectionLost)
+  {
+    Serial.println("Connection lost");
+
+    haveReportedBattery = false;
+  }
+
+  // calculate time since buttons were last pressed
+  unsigned long timeSinceLastButtonPress = currentTime - lastButtonPressTime;
+
+  // go to deep sleep if there are no interactions for a while
+  if (isConnected && timeSinceLastButtonPress >= INTERACTION_DEEP_SLEEP_DELAY_MS)
+  {
+    Serial.print("No interactions detected for ");
+    Serial.print(INTERACTION_DEEP_SLEEP_DELAY_MS);
+    Serial.println("ms, going to deep sleep until any of the buttons is clicked");
+
+    goToDeepSleep();
+  }
+
+  // calculate time since last connected
+  unsigned long timeSinceLastConnected = currentTime - lastConnectedTime;
+
+  // go to sleep if have been attempting to establish connection for too long
+  if (!isConnected && timeSinceLastConnected >= CONNECTION_GIVE_UP_DURATION_MS)
+  {
+    Serial.print("Failed to establish bluetooth connection in ");
+    Serial.print(CONNECTION_GIVE_UP_DURATION_MS);
+    Serial.println("ms, going to deep sleep until any of the buttons is clicked");
+
+    goToDeepSleep();
+  }
+
+  // calculate time since last reported battery voltage
+  unsigned long timeSinceLastReportedBattery = currentTime - lastReportBatteryTime;
+
+  // report battery voltage if connected at certain interval or if have never reported
+  if (isConnected && (!haveReportedBattery || timeSinceLastReportedBattery >= REPORT_BATTERY_VOLTAGE_INTERVAL_MS))
   {
     // get battery voltage and percentage
     float batteryVoltageMillivolts = getBatteryVoltageMillivolts();
@@ -309,11 +371,12 @@ void loop()
     // update remaining battery level
     batteryService.notify(batteryRemainingPercentage);
 
-    lastReportBatteryVoltageTime = currentTime;
+    lastReportBatteryTime = currentTime;
+    haveReportedBattery = true;
   }
 
-  // consider button changes at certain interval
-  if (currentTime - lastButtonsChangedTime >= REPORT_BUTTONS_CHANGED_INTERVAL_MS)
+  // consider button changes at certain interval (only if connected)
+  if (isConnected && timeSinceLastButtonPress >= REPORT_BUTTONS_CHANGED_INTERVAL_MS)
   {
     // check whether changing game is requested
     bool isChooseGameDown = digitalRead(CHOOSE_GAME_PIN) == LOW;
@@ -328,7 +391,7 @@ void loop()
       Serial.print(" of ");
       Serial.println(GAME_COUNT);
 
-      lastButtonsChangedTime = currentTime;
+      lastButtonPressTime = currentTime;
     }
     else
     {
@@ -395,53 +458,49 @@ void loop()
         lastPressedButtonCount = pressedButtonCount;
       }
 
-      lastButtonsChangedTime = currentTime;
+      // update last buttons changed time if any of the buttons was pressed
+      if (pressedButtonCount > 0)
+      {
+        lastButtonPressTime = currentTime;
+      }
     }
-  }
-
-  // go to deep sleep if there are no interactions for a while
-  if (currentTime - lastButtonsChangedTime >= INTERACTION_DEEP_SLEEP_DELAY_MS)
-  {
-    Serial.print("no interactions detected for ");
-    Serial.print(INTERACTION_DEEP_SLEEP_DELAY_MS);
-    Serial.println("ms, going to deep sleep until any of the buttons is clicked");
-    Serial.flush();
-
-    delay(3000);
-
-    goToDeepSleep();
   }
 
   // decide connection led state
   int targetConnectionLedState = LOW;
 
-  if (!Bluefruit.connected())
+  // decide connection led blink interval (blinks faster if connecting)
+  unsigned long blinkInterval = isConnected ? CONNECTED_BLINK_INTERVAL_MS : CONNECTING_BLINK_INTERVAL_MS;
+  unsigned long timeSinceLastBlink = currentTime - lastConnectionBlinkToggleTime;
+
+  // toggle blink led at interval
+  if (timeSinceLastBlink >= blinkInterval)
+  {
+    lastConnectionBlinkToggleTime = currentTime;
+  }
+
+  if (timeSinceLastBlink <= CONNECTION_BLINK_ON_DURATION_MS)
   {
     targetConnectionLedState = HIGH;
   }
   else
   {
-    unsigned long timeSinceLastBlink = currentTime - lastConnectionBlinkToggleTime;
-
-    // toggle blink led at interval
-    if (timeSinceLastBlink >= CONNECTION_BLINK_TOGGLE_INTERVAL_MS)
-    {
-      lastConnectionBlinkToggleTime = currentTime;
-    }
-
-    if (timeSinceLastBlink <= CONNECTION_BLINK_ON_DURATION_MS)
-    {
-      targetConnectionLedState = HIGH;
-    }
-    else
-    {
-      targetConnectionLedState = LOW;
-    }
+    targetConnectionLedState = LOW;
   }
 
   // only update connection led state if status has changed
   if (targetConnectionLedState != connectionBlinkState)
   {
+    // log connecting duration
+    if (!isConnected)
+    {
+      Serial.print("Connecting ");
+      Serial.print(timeSinceLastConnected);
+      Serial.print("/");
+      Serial.print(CONNECTION_GIVE_UP_DURATION_MS);
+      Serial.println("ms");
+    }
+
     connectionBlinkState = targetConnectionLedState;
 
     digitalWrite(CONNECTION_LED_PIN, connectionBlinkState);
