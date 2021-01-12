@@ -317,11 +317,15 @@ void loop()
   if (connectionEstablished)
   {
     Serial.println("Connection established");
+
+    // avoid quickly going to sleep
+    lastButtonPressTime = currentTime;
   }
   else if (connectionLost)
   {
     Serial.println("Connection lost");
 
+    // make sure to report battery again
     haveReportedBattery = false;
   }
 
