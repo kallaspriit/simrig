@@ -130,7 +130,7 @@ uint8_t buttonMapping[GAME_COUNT][BUTTON_COUNT] = {
 
 // timing configuration
 const unsigned long REPORT_BATTERY_VOLTAGE_INTERVAL_MS = 60000; // report battery every minute
-const unsigned long INTERACTION_DEEP_SLEEP_DELAY_MS = 30000;    // go to sleep after 30 seconds of inactivity
+const unsigned long INTERACTION_DEEP_SLEEP_DELAY_MS = 300000;   // go to sleep after 5 minutes of inactivity
 const unsigned long CONNECTED_BLINK_INTERVAL_MS = 10000;        // how often to blink if connected
 const unsigned long CONNECTING_BLINK_INTERVAL_MS = 1000;        // how often to blink if not connected
 const unsigned long CONNECTION_GIVE_UP_DURATION_MS = 30000;     // how long to attempt to connect to a host before giving up and goind to sleep
